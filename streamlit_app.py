@@ -203,6 +203,46 @@ with c4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# ── Full inventory table ────────────────────────────────────────────────────────
+st.markdown('<div class="section-title">Inventario Completo</div>',
+            unsafe_allow_html=True)
+
+f1, f2, f3 = st.columns([3, 2, 1])
+search      = f1.text_input("🔍 Buscar (nombre o SKU)", "")
+cats        = ["Todas"] + sorted(df["categoria"].dropna().unique().tolist())
+cat_filter  = f2.selectbox("Categoría", cats)
+stat_filter = f3.selectbox("Estado", ["Todos", "Sin Stock", "Bajo", "OK"])
+
+filtered = df.copy()
+if search:
+    mask = (filtered["sku"].str.contains(search, case=False, na=False) |
+            filtered["descripcion"].str.contains(search, case=False, na=False))
+    filtered = filtered[mask]
+if cat_filter != "Todas":
+    filtered = filtered[filtered["categoria"] == cat_filter]
+if stat_filter != "Todos":
+    filtered = filtered[filtered["estado"] == stat_filter]
+
+
+def highlight(row):
+    if row["estado"] == "Sin Stock":
+        return ["background-color: #ffebee"] * len(row)
+    if row["estado"] == "Bajo":
+        return ["background-color: #fff8e1"] * len(row)
+    return [""] * len(row)
+
+
+show_cols = ["sku", "descripcion", "categoria", "entradas", "salidas", "stock", "estado"]
+st.dataframe(
+    filtered[show_cols].style.apply(highlight, axis=1),
+    use_container_width=True,
+    height=480,
+    hide_index=True,
+)
+st.caption(f"Mostrando {len(filtered):,} de {len(df):,} items")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
 # ── Charts row ─────────────────────────────────────────────────────────────────
 left, right = st.columns(2)
 
@@ -259,41 +299,3 @@ if not alerts.empty:
                 bajo[["sku", "descripcion", "categoria", "stock"]],
                 use_container_width=True, hide_index=True
             )
-
-# ── Full inventory table ────────────────────────────────────────────────────────
-st.markdown('<div class="section-title">Inventario Completo</div>',
-            unsafe_allow_html=True)
-
-f1, f2, f3 = st.columns([3, 2, 1])
-search      = f1.text_input("🔍 Buscar (nombre o SKU)", "")
-cats        = ["Todas"] + sorted(df["categoria"].dropna().unique().tolist())
-cat_filter  = f2.selectbox("Categoría", cats)
-stat_filter = f3.selectbox("Estado", ["Todos", "Sin Stock", "Bajo", "OK"])
-
-filtered = df.copy()
-if search:
-    mask = (filtered["sku"].str.contains(search, case=False, na=False) |
-            filtered["descripcion"].str.contains(search, case=False, na=False))
-    filtered = filtered[mask]
-if cat_filter != "Todas":
-    filtered = filtered[filtered["categoria"] == cat_filter]
-if stat_filter != "Todos":
-    filtered = filtered[filtered["estado"] == stat_filter]
-
-
-def highlight(row):
-    if row["estado"] == "Sin Stock":
-        return ["background-color: #ffebee"] * len(row)
-    if row["estado"] == "Bajo":
-        return ["background-color: #fff8e1"] * len(row)
-    return [""] * len(row)
-
-
-show_cols = ["sku", "descripcion", "categoria", "entradas", "salidas", "stock", "estado"]
-st.dataframe(
-    filtered[show_cols].style.apply(highlight, axis=1),
-    use_container_width=True,
-    height=480,
-    hide_index=True,
-)
-st.caption(f"Mostrando {len(filtered):,} de {len(df):,} items")
