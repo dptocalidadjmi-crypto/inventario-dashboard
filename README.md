@@ -4,12 +4,6 @@ Dashboard de inventario que lee directamente del export CSV de un Google Sheet.
 Pensado para desplegarse gratis en [Streamlit Community Cloud](https://share.streamlit.io)
 y embeberse en ClickUp.
 
-## Despliegue
-
-1. Sube esta carpeta como repositorio a GitHub (puede ser privado).
-2. Entra a https://share.streamlit.io e inicia sesión con GitHub.
-3. "Create app" → elige este repo → archivo principal: `streamlit_app.py`.
-4. En **App settings → Secrets** pega:
 
    ```toml
    SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/<ID-DEL-SHEET>/export?format=csv"
