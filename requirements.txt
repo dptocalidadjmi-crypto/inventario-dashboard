@@ -2,3 +2,6 @@ streamlit==1.57.0
 pandas==3.0.3
 plotly==6.7.0
 requests==2.34.1
+# pyarrow 25.0.0 tiene un bug que tumba la app al mostrar dataframes en
+# Streamlit Cloud (jul 2026): https://discuss.streamlit.io/t/121922
+pyarrow<25.0.0
