@@ -16,7 +16,8 @@ jobs:
     steps:
       - name: Visitar la app con navegador real
         run: |
-          python - <<'EOF'
+          python3 -m pip install --quiet playwright==1.49.0
+          python3 - <<'EOF'
           import sys
           from playwright.sync_api import sync_playwright
 
