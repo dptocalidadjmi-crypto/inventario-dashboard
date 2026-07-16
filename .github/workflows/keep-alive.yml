@@ -2,17 +2,45 @@ name: Keep dashboard awake
 
 on:
   schedule:
-    # Cada 4 horas — evita que Streamlit Cloud duerma la app por inactividad
+    # Cada 4 horas — evita que Streamlit Cloud duerma la app por inactividad.
+    # Nota: un curl simple NO cuenta como visita para Streamlit; hace falta
+    # una sesion real de navegador (websocket), por eso usamos Playwright.
     - cron: "0 */4 * * *"
   workflow_dispatch: {}
 
 jobs:
-  ping:
+  visit:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.49.0-noble
     steps:
-      - name: Visitar la app
+      - name: Visitar la app con navegador real
         run: |
-          curl -sL --retry 3 --retry-delay 20 --max-time 180 \
-            -c /tmp/ck.txt -b /tmp/ck.txt \
-            -o /dev/null -w "respuesta: HTTP %{http_code}\n" \
-            "https://inventario-dashboard-ah5mkft5rzgpejtxtyquin.streamlit.app/"
+          python - <<'EOF'
+          import sys
+          from playwright.sync_api import sync_playwright
+
+          URL = "https://inventario-dashboard-ah5mkft5rzgpejtxtyquin.streamlit.app/"
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page()
+              page.goto(URL, wait_until="domcontentloaded", timeout=120_000)
+
+              # Si la app esta hibernando, pulsar el boton de despertar
+              try:
+                  page.get_by_text("get this app back up").click(timeout=8_000)
+                  print("app dormida: boton de despertar pulsado")
+              except Exception:
+                  print("sin boton de despertar (app ya activa)")
+
+              # Esperar a que el dashboard rendere de verdad (hasta 4 min)
+              page.wait_for_selector("text=Dashboard de Inventario", timeout=240_000)
+              print("dashboard renderizado correctamente")
+
+              # Mantener la sesion abierta un momento para que cuente como visita
+              page.wait_for_timeout(20_000)
+              browser.close()
+
+          print("visita completada")
+          EOF
