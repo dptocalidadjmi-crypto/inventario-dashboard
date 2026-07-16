@@ -19,9 +19,11 @@ jobs:
           python3 -m pip install --quiet playwright==1.49.0
           python3 - <<'EOF'
           import sys
+          import time
           from playwright.sync_api import sync_playwright
 
           URL = "https://inventario-dashboard-ah5mkft5rzgpejtxtyquin.streamlit.app/"
+          MARCA = "Dashboard de Inventario"
 
           with sync_playwright() as p:
               browser = p.chromium.launch()
@@ -35,8 +37,26 @@ jobs:
               except Exception:
                   print("sin boton de despertar (app ya activa)")
 
-              # Esperar a que el dashboard rendere de verdad (hasta 4 min)
-              page.wait_for_selector("text=Dashboard de Inventario", timeout=240_000)
+              # La app corre dentro de un iframe — buscar el titulo en TODOS
+              # los frames, hasta 4 minutos (el despertar tarda ~1 min)
+              deadline = time.time() + 240
+              visible = False
+              while time.time() < deadline and not visible:
+                  for frame in page.frames:
+                      try:
+                          if MARCA in frame.inner_text("body"):
+                              visible = True
+                              break
+                      except Exception:
+                          pass
+                  if not visible:
+                      page.wait_for_timeout(5_000)
+
+              if not visible:
+                  print("ERROR: el dashboard no rendereo en 4 minutos")
+                  browser.close()
+                  sys.exit(1)
+
               print("dashboard renderizado correctamente")
 
               # Mantener la sesion abierta un momento para que cuente como visita
