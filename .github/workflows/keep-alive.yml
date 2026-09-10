@@ -65,3 +65,59 @@ jobs:
 
           print("visita completada")
           EOF
+
+  anti-idle:
+    # GitHub apaga los workflows programados tras 60 dias sin actividad en un
+    # repo publico. Solo cuentan los COMMITS a la rama por defecto: los tags,
+    # issues, PRs y las corridas de Actions NO reinician el contador, y los
+    # commits en otras ramas tampoco.
+    #
+    # Si eso pasa, el job de arriba deja de correr y la app se vuelve a dormir
+    # (paso justo eso el 2026-09-10, con el repo en el dia ~56).
+    #
+    # Este job mira cuantos dias lleva el ultimo commit y, solo si ya se acerca
+    # al limite, empuja un commit de latido que pone el contador en cero.
+    # Sale a ~9 commits al año. Cada uno provoca un redeploy en Streamlit Cloud,
+    # que es seguro porque requirements.txt tiene las versiones fijadas.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # hace falta el historial para leer la fecha del ultimo commit
+
+      - name: Latido si el repo se acerca a los 60 dias
+        env:
+          UMBRAL_DIAS: "40"       # margen de 20 dias antes del limite de GitHub
+        run: |
+          set -euo pipefail
+
+          ultimo=$(git log -1 --format=%ct)
+          ahora=$(date +%s)
+          dias=$(( (ahora - ultimo) / 86400 ))
+          echo "Ultimo commit hace ${dias} dias (umbral ${UMBRAL_DIAS}, limite de GitHub 60)."
+
+          if [ "${dias}" -lt "${UMBRAL_DIAS}" ]; then
+            echo "Todavia hay margen: no hace falta latido."
+            exit 0
+          fi
+
+          echo "Repo cerca del limite: enviando commit de latido."
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/.keepalive
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/.keepalive
+          git commit -m "chore: latido anti-inactividad (evita que GitHub apague el keep-alive)"
+
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+
+          if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then
+            echo "::error::Push rechazado. Revisa Settings -> Actions -> General ->"
+            echo "::error::Workflow permissions -> 'Read and write permissions'."
+            exit 1
+          fi
+
+          echo "Latido enviado: el contador de 60 dias vuelve a cero."
